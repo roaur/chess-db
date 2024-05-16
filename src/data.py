@@ -1,9 +1,7 @@
-import asyncio
 from db import get_db_connection
 import logging
 import requests
 import json
-from utils import handle_player_data
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -53,9 +51,19 @@ class DataProcessor:
             # Insert move into database
             await self.insert_move(data['d'], self.game_id)
 
+    async def handle_player_data(self, game_data):
+        players = game_data['players']
+        player_data = {}
+        for player in players:
+            player_data[player['color']] = player['user']
+            player_data[player['color']]['rating'] = player['rating']
+            player_data[player['color']]['seconds'] = player['seconds']
+            logger.debug(f"Player data: {player_data}")
+        return player_data
+
     async def insert_game(self, game_id, game_data):
         # Insert game into database
-        player_data = await handle_player_data(game_data)
+        player_data = await self.handle_player_data(game_data)
         id = game_id
         game_orientation = game_data['orientation']
         white_player_id = player_data['white']['id']

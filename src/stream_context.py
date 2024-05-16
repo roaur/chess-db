@@ -1,11 +1,6 @@
 import logging
-import requests
-import json
 import asyncio
 import concurrent.futures
-from utils import handle_player_data
-from db import get_db_connection
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
