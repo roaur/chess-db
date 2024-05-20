@@ -3,7 +3,6 @@ import psycopg_pool
 from utils import settings
 from contextlib import asynccontextmanager
 import logging
-import asyncio
 
 # Set up logging
 logging.basicConfig(
@@ -22,7 +21,6 @@ async def init_db_pool():
     global pool
     pool = psycopg_pool.AsyncConnectionPool(str(SETTINGS.DATABASE_URL), max_size=25, open=False)
     await pool.open()
-    await pool.wait()
     logging.info("Database connection pool ready.")
     # return pool
 

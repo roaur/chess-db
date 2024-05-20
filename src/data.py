@@ -1,6 +1,6 @@
 from db import get_db_connection
 import logging
-import requests
+import aiohttp
 import json
 
 logging.basicConfig(
@@ -11,25 +11,25 @@ logger.setLevel(logging.DEBUG)
 
 
 class DataFetcher:
-    def __init__(self, url):
+    def __init__(self, url, session, max_retries = 3):
         self.url = url
+        self.session = session
+        self.max_retries = max_retries
 
-    def fetch_data(self):
-        while True:
+    async def fetch_data(self):
+        for _ in range(self.max_retries):
             try:
-                response = requests.get(self.url, stream=True)
-                for line in response.iter_lines():
-                    if line:  # filter out keep-alive new lines
-                        decoded_line = line.decode('utf-8')
-                        data = json.loads(decoded_line)
-                        logging.debug(f"Received data: {data}")
-                        yield data
-            except requests.ChunkedEncodingError:
-                logging.error("Error fetching data. Retrying...")
-                continue
-            except Exception as e:
-                logging.error(f"Error fetching data: {e}")
-                break
+                async with self.session.get(self.url) as response:
+                        async for line in response.content:
+                            if line:
+                                data = json.loads(line.decode('utf-8'))
+                                logger.debug(f"Received data: {data}")
+                                yield data
+            except aiohttp.client_exceptions.ClientPayloadError as e:
+                logger.error(f"Error fetching data: {e}")
+        else:
+            logger.error(f"Max retries exceeded. Exiting.")
+            
 
 
 class DataProcessor:

@@ -1,5 +1,6 @@
 import concurrent.futures
 import requests
+import aiohttp
 import json
 import logging
 import asyncio
@@ -11,35 +12,27 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def fetch_data(url):
-    while True:
-        try:
-            response = requests.get(url, stream=True)
-            for line in response.iter_lines():
-                if line:  # filter out keep-alive new lines
-                    decoded_line = line.decode('utf-8')
-                    data = json.loads(decoded_line)
-                    logger.debug(f"Received data: {data}")
-                    yield data
-        except requests.ChunkedEncodingError:
-            logger.error("Error fetching data. Retrying...")
-            continue
-        except Exception as e:
-            logger.error(f"Error fetching data: {e}")
-            break
-
-
-async def stream_lichess_tv():
-    url = "https://lichess.org/api/tv/feed"
-    data_fetcher = DataFetcher(url)
+async def run_stream_context(url, client_session):
+    data_fetcher = DataFetcher(url, client_session)
     data_stream = StreamContext(data_fetcher, DataProcessor())
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        loop = asyncio.get_running_loop()
-        data_generator = await loop.run_in_executor(executor, fetch_data, url)
-        for data in data_generator:
-            await data_stream.processor.handle_data(data)
+    async for data in data_fetcher.fetch_data():
+        await data_stream.processor.handle_data(data)
 
 
-# Run the streaming function
-asyncio.run(stream_lichess_tv())
+async def main():
+    urls = [
+        "https://lichess.org/api/tv/rapid/feed",
+        "https://lichess.org/api/tv/blitz/feed",
+        "https://lichess.org/api/tv/bullet/feed",
+        "https://lichess.org/api/tv/classical/feed",
+        "https://lichess.org/api/tv/ultraBullet/feed",
+    ]
+    async with aiohttp.ClientSession() as session:
+        tasks = [run_stream_context(url, session) for url in urls]
+        await asyncio.gather(*tasks)
+
+
+if __name__ == "__main__":
+    # Run the streaming function
+    asyncio.run(main())
 
